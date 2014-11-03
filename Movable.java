@@ -1,9 +1,13 @@
 package com.blokk.game;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.MathUtils;
 
+/**
+ * @author     Ottar og Þorsteinn. Edit by Hlynur
+ * @version     1.0a                 Alpha
+ * @since       2014-10-10        
+ */
 public class Movable {
 	public Boolean typeOne;
 	public boolean typeTwo;
@@ -19,12 +23,16 @@ public class Movable {
 	public long timeThrusted;
 	public boolean isBeingThrusted;
 	
+	/**	
+	*Constructs ablock, i.e. Movable
+	* @param isMovable A boolean which decides if the block is movable by the user
+	*/
 	public Movable(boolean isMovable) {
 		col = randomizeSlot();
 		
-		if (true) {
-			typeOne = randomizeType();;
-			typeTwo = true;
+		if (isMovable) {
+			typeOne = randomizeType();
+			typeTwo = randomizeType();
 //			type = createType();
 		}
 		else {
@@ -33,6 +41,10 @@ public class Movable {
 		}
 	}
 	
+	/**
+	*Constructs a block, i.e. Movable 
+	* @param Movable m A Movable block which is cloned 
+	*/
 	public Movable(Movable m) {
 		typeOne = m.typeOne;
 		typeTwo = m.typeTwo;
@@ -47,6 +59,10 @@ public class Movable {
 		isMovable = m.isMovable;
 	}
 	
+	/**
+ 	*Takes the delta time so we can update the entity to correspond to the input of the gameloop
+ 	* @param dy is the delta time of each frame rendered
+ 	*/
 	public void update(float dy) {	
 		
 		if(System.currentTimeMillis() - timeThrusted > 1000 && isBeingThrusted){
@@ -63,20 +79,18 @@ public class Movable {
 		return;
 	}
 	
+	/**
+ 	*  Returns true if a block is intersecting with another Movable block or the ground
+ 	* @param Movable m is the Movable block being checked for collision
+ 	*/
 	public boolean intersects(Movable m) {
 		if (x < (m.x + m.width) && (x + width) > m.x && (y + height) > m.y && y < (m.y + m.height)) return true;
 		return false;
 	}
 	
-//	private Texture createType() {
-//		1 = false;
-//		
-//		if (typeOne && typeTwo) return square;
-//		else if (!typeOne && typeTwo) return triangle;
-//		else if (typeOne && !typeTwo) return circle;
-//		else return ex;
-//	}
-	
+	/**
+ 	*  A function for randoming the types of the Movable blocks, each being a combination of two booleans
+ 	*/
 	private boolean randomizeType() {
 		boolean type = false;
 		
@@ -85,14 +99,9 @@ public class Movable {
 		return type;
 	}
 	
-//	private Boolean randomizeType_B() {
-//		Boolean type = false;
-//		
-//		if (Math.random() < 0.5) type = true;
-//		
-//		return type;
-//	}
-	
+	/**
+ 	* A function for randomizing the column where the Movable block should be spawned
+ 	*/
 	private int randomizeSlot() {
 		return MathUtils.random(0, 6);
 	}

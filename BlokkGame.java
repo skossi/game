@@ -11,6 +11,12 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.TimeUtils;
 
+
+/**
+* @author     Ottar og Þorsteinn. Edit by Hlynur
+* @version     1.0a                 Alpha
+* @since       2014-10-10        
+*/
 public class BlokkGame implements ApplicationListener {
    private Texture dropImage;
    private Texture bucketImage;
@@ -35,6 +41,9 @@ public class BlokkGame implements ApplicationListener {
    private Texture selected;
    private boolean isSelected;
 
+   /**
+   * Starts the gameloop by opening components from badlogic pack and sets the orthogonal projection of the camera.
+   */
    @Override
    public void create() {
       // create the camera and the SpriteBatch
@@ -45,7 +54,7 @@ public class BlokkGame implements ApplicationListener {
       
       // create Movables
       columns = 7;
-      rows = 13;
+      rows = 14;
       Movables = new Movable[columns][rows];
       
 	  square = new Texture(Gdx.files.internal("square.png"));
@@ -54,13 +63,18 @@ public class BlokkGame implements ApplicationListener {
 	  ex = new Texture(Gdx.files.internal("ex.png"));
 	  black = new Texture(Gdx.files.internal("black.png"));
 	  selected = new Texture(Gdx.files.internal("selected.png"));
-      spawnMovable();
+	  prepareMatrix();
    }
    
+   /**
+   * Creates a new cube on a timed interval. It’s type is randomed. This method is a temporary solution for spawning cubes in debugging mode
+   *
+   * @return            a new cube of some sort is created and placed in the grid
+   */
    private void spawnMovable() {
 	  Movable movable;
 	  double randomize = Math.random();
-	  if (randomize < 0.8) {
+	  if (randomize < 1) {
 		  movable = new Movable(true);
 		  movable.type = createType(movable.typeOne, movable.typeTwo);
 	  }
@@ -78,22 +92,54 @@ public class BlokkGame implements ApplicationListener {
     		  break;
     	  }
       }
-      Movables[movable.col][available_row] = movable;
       movable.row = available_row;
       movable.x = (size+1)*movable.col;
-      movable.y = 800;
+      movable.y = 900;
       movable.speed = -600;
       movable.width = size;
       movable.height = size;
       movable.isBeingThrusted = false;
+      Movables[movable.col][available_row] = movable;
       lastDropTime = TimeUtils.nanoTime();
    }
    
+   /**
+   * Prepares the Movables matrix by adding a row of immovable blocks below the screen for collision purposes    
+   * 
+   * @return            one row of immovable blocks are created below the screen
+   */
+   public void prepareMatrix() {
+	   for (int i = 0; i < columns; i++) {
+		   Movable movable = new Movable(false);
+		   movable.type = createType(movable.typeOne, movable.typeTwo);
+		   
+	       movable.row = 0;
+	       movable.y = -(size+1);
+	       movable.speed = 0;
+	       movable.width = size;
+	       movable.height = size;
+	       movable.isBeingThrusted = false;
+	       movable.x = (size+1)*i;
+		   Movables[i][0] = movable;
+	   }
+   }
+   
+   /**
+   * Gives a created cube its texture depend on his boolean tree structure    
+   * 
+   * @param typeOne file Boolean which decides if it is a movable cube or black block
+   * @param typeTwo boolean that decides what kind of color the cube is
+   * @return            returns Texture corresponding to it’s boolean structure
+   */
    private Texture createType(Boolean typeOne, boolean typeTwo) {
 		if (typeOne == null) return black;
 		return (typeOne ? (typeTwo ? square : circle) : (typeTwo ? triangle : ex));
    }
    
+   /**
+   * Clears the window and draws all entities. Sends coordinates to methods to find out where player *is touching
+   *
+   */
    @Override
    public void render() {
       // clear the screen with a dark blue color. The
@@ -103,7 +149,7 @@ public class BlokkGame implements ApplicationListener {
       Gdx.gl.glClearColor(0.43f, 0.5f, 0.2f, 1);
       Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
       
-      dy = Gdx.graphics.getDeltaTime()/3;
+      dy = Gdx.graphics.getDeltaTime();
 
       // tell the camera to update its matrices.
       camera.update();
@@ -144,18 +190,20 @@ public class BlokkGame implements ApplicationListener {
       update(dy);
       
       batch.begin();
-      //batch.draw(bucketImage, bucket.x, bucket.y);
       for(int i = 0; i < columns; i++) {
     	  for (int j = 0; j < rows; j++) {
     		  Movable m = Movables[i][j];
-    		  if (m != null && !(m.speed == 0)) batch.draw(createType(m.typeOne,m.typeTwo), m.x, m.y);
-    		  else if (m != null && m.speed == 0) batch.draw(createType(m.typeOne,m.typeTwo), i*65, j*65);
+    		  if (m != null) batch.draw(createType(m.typeOne,m.typeTwo), m.x, m.y);
     	  }
       }
       if(isSelected)batch.draw(selected, selectedX-size/2, selectedY-size/2);
       batch.end();
    }
    
+   /**
+   *Takes the delta time so we can update each entity to correspond to the input of the gameloop, *time
+   * @param dy is the delta time of each frame rendered
+   */
    public void update(float dy) {
 	   if (isPaused) return;
 	   if (TimeUtils.nanoTime() - lastDropTime > 900000000) spawnMovable();
@@ -165,41 +213,35 @@ public class BlokkGame implements ApplicationListener {
 	   for (int i = 0; i < steps; i++) computeSubStep(dy/steps);
    }
    
+   /**
+   *Breaks the entities update into smaller steps so it wont render out of bounds.
+   * @param dy is the delta time of each frame rendered
+   */   
    public void computeSubStep(float dy) {
-	   for(Movable[] rows : Movables) {
-    	  for (Movable m1 : rows) {
-    		  if(m1 == null) continue;
+	   for(Movable[] row : Movables) {
+    	  for (Movable m1 : row) {
+    		  if(m1 == null || m1.row == 0) continue;
     		  if (m1.speed < 0 && 
-    				  System.currentTimeMillis() - m1.timeThrusted > 1000) {
-	    		  for(Movable[] rows2 : Movables) {
-	    	    	  for (Movable m2 : rows2) {
-	    	    		  //tilvikið þegar kubbur rekst á kubb fyrir neðan sig
-	    	    		  if (m2 != null && m1 != m2 && m1.intersects(m2)) {
-	    	    			  m1.speed = m2.speed;
-	    	    			  if(m1.speed>0){
-	    	    				  m1.isBeingThrusted = true;
-	    	    				  m1.timeThrusted = m2.timeThrusted;
-	    	    			  }
-	    	    			  handleMatches(m1);
-	    	    			  break;
-	    	    		  }
-//	    	    		  System.out.println("row:" + m1.row);
-	    	    		  //hér athugum við fyrir kubba á neðstu línu hvort það séu 3 eða fleiri saman lárétt
-	    	    		  //tilvikið að ofan dekkar þetta ekki
-	    	    		  if(m1.row == 0 && m1.y <= 20){
-	    	    			  m1.speed = 0;
-	    	    			  handleMatches(m1);
-	    	    			  break;
-	    	    		  }
-	    	    		  
-	    	    	  }
-	    	      }
+				  System.currentTimeMillis() - m1.timeThrusted > 1000) {
+				  if (Movables[m1.col][m1.row-1] != null && m1 != Movables[m1.col][m1.row-1] && m1.intersects(Movables[m1.col][m1.row-1])) {
+					  Movable m2 = Movables[m1.col][m1.row-1];
+					  m1.speed = m2.speed;
+					  if(m1.speed>0){
+	    				  m1.isBeingThrusted = true;
+	    				  m1.timeThrusted = m2.timeThrusted;
+	    			  }
+	    			  handleMatches(m1);
+				  }
     		  }
         	  m1.update(dy);
     	  }
       }
    }
    
+   /**
+   *Checks to see if the player did indeed move a block to a valid position and to find if he added *three or more together
+   * @param m1 A moved Movable block by the user
+   */
    public void handleMatches(Movable m1){
 	   if (m1.typeOne == null) return;
 	   checkRowMatches(m1);
@@ -207,7 +249,11 @@ public class BlokkGame implements ApplicationListener {
 	   return;
    }
    
-  public void checkColMatches(Movable m1){
+   /**
+   *Checks out if anyone is linked to the moved Movable in the Column
+   * @param m1 A moved Movable block by the user
+   */ 
+   public void checkColMatches(Movable m1){
 	   Boolean typeOne = m1.typeOne;
 	   boolean typeTwo = m1.typeTwo;
 	   int count = 0;
@@ -236,8 +282,12 @@ public class BlokkGame implements ApplicationListener {
 		   }
 	   }
 	   return;
-  }
+   }
    
+   /**
+   *Checks out if anyone is linked to the moved Movable in the Row. This one is bugged and needs *refactoring
+   * @param m1 A moved Movable block by the user
+   */
    public void checkRowMatches(Movable m1){
 	   //Stundum kemur villa thegar kubbur dettur nidur a milli tveggja kubba
 	   //thad sem gerist er ad kubburinn er merktur sem ad hann matchist adur en hann
@@ -264,7 +314,7 @@ public class BlokkGame implements ApplicationListener {
 		   }
 		   count = 0;
 	   }
-	   if(count > 1){
+	   if(count > 2){
 //		   for(int j = index; j < index+count; j++){
 //			   Movables[j][row].type = circle;
 //		   }
@@ -279,55 +329,67 @@ public class BlokkGame implements ApplicationListener {
    //frÃ¡ index to index+count
    //ef isThrusting er true Ã¾Ã¡ er Ã¶llum kubbum sem er veriÃ° aÃ° skjÃ³ta Ã­ Ã¾eim dÃ¡lkum
    //skotiÃ° alla leiÃ° Ãºr borÃ°inu
-   public void shootRows(int index, int count, int row, boolean isBeingTrusted){
+   public void shootRows(int index, int count, int row, boolean isBeingThrusted){
 	   System.out.println("Shooting!");
-	   if(isBeingTrusted){
+	   if(isBeingThrusted){
 		   //Vantar hÃ©r lÃ³gÃ­k til aÃ° skjÃ³ta platforminu alla leiÃ° upp
 	   }
 	   for(int j = index; j < index+count; j++){
 		   for (int i = row; i < rows; i++){
 			   if(Movables[j][i] != null) {
-				   if(Movables[j][i].speed != 0) continue;
-				   System.out.println("SPEED:" + Movables[j][i].speed);
+				   if(Movables[j][i].speed < 0) continue;
 				   Movables[j][i].speed = 400;
 			       Movables[j][i].timeThrusted = System.currentTimeMillis();   
-			       Movables[j][i].isBeingThrusted = true;   
+			       Movables[j][i].isBeingThrusted = true;
+				   System.out.println("blokk: " + Movables[j][i].row + ", " + Movables[j][i].col + ", " + Movables[j][i].speed);   
 			   }
 		   }
 	   }
    }
    
+   /**
+   *Finds out if the moved block was indeed the same color is the one moved in it’s direction
+   * @param m1 A moved Movable block by the user
+   * @param typeOne lets the method know what kind of cube it is.
+   * @param typeOne lets the method know what kind of cube it is.
+   * @return true if a corresponding block is matched
+   */
    public boolean isSameType(Movable m1, Boolean typeOne, boolean typeTwo){
 	   if(m1 == null){return false;}
 	   return m1.typeOne == typeOne && m1.typeTwo == typeTwo;
    }
    
+   /**
+   *Passes the x,y coordinates of the screen on to it’s chiled methods to find out if the player is  *indeed clicking at a cube.
+   * @param x X-coordinates of the screen
+   * @param y Y-coordinates of the screen
+   */
    public void findMovable(float x, float y) {
-	   int row = (int)(selectedY/size);
+	   int row = (int)(selectedY/size)+1;
 	   int col = (int)(selectedX/size);
 	   
-	   if (row < 0 || row > 12 || col < 0 || col > 6) return;
+	   if (row < 0 || row > rows-1 || col < 0 || col > columns-1) return;
 	   
 	   if (Movables[col][row] != null && Movables[col][row].typeOne != null) {
-		   Movable m1 = new Movable(Movables[col][row]);
+		   Movable selectedM = new Movable(Movables[col][row]);
 		   
 		   if (row < 11 && Movables[col][row+1] != null) {
-			   Movable m2 = new Movable(Movables[col][row+1]);
+			   Movable targetM = new Movable(Movables[col][row+1]);
 			   
-			   if (y > selectedY + size && m2 != null && m2.typeOne != null && m2.speed == 0) {
+			   if (y > selectedY + size && targetM != null && targetM.typeOne != null && targetM.speed == 0) {
 				   selectedY += size;
-				   swapMovables(m1, m2, col, row, 1);
+				   swapMovables(selectedM, targetM, selectedM.y, col, row, 1);
 				   handleMatches(Movables[col][row]);
 				   handleMatches(Movables[col][row+1]);
 			   }
 		   }
 		   
 		   if (row > 0 && Movables[col][row-1] != null) {
-			   Movable m2 = new Movable(Movables[col][row-1]);
+			   Movable targetM = new Movable(Movables[col][row-1]);
 			   
-			   if (y < selectedY - size && m2 != null && m2.typeOne != null && m2.speed == 0) {
+			   if (y < selectedY - size && targetM != null && targetM.typeOne != null && targetM.speed == 0) {
 				   selectedY -= size;
-				   swapMovables(m1, m2, col, row, -1);
+				   swapMovables(selectedM, targetM, selectedM.y, col, row, -1);
 				   handleMatches(Movables[col][row]);
 				   handleMatches(Movables[col][row-1]);
 			   }
@@ -336,23 +398,29 @@ public class BlokkGame implements ApplicationListener {
 	   
    }
    
-//   public boolean canSwap(int column, int row, int add) {
-//	   return true;
-//   }
-//   
-   public void swapMovables(Movable m1, Movable m2, int col, int row, int add) {
-//	   int m1_col = m1.col;
-//	   int m1_row = m1.row;
-//	   
-//	   int m2_col = m2.col;
-//	   int m2_row = m2.row;
-	   
+   /**
+   *Swaps to different Movables if the move of the player was legit
+   * @param m1 A moved Movable
+   * @param m2 Movable that is going to be swapped
+   * @param col the column of the moved cube
+   * @param row the row of the moved cube
+   * @param add integer that decides if we are swapping upwards or downwards
+   */
+   public void swapMovables(Movable m1, Movable m2, float y, int col, int row, int add) {
 	   Movable temp1 = new Movable(m1);
 	   Movable temp2 = new Movable(m2);
 	   
 	   Movables[col][row] = temp2;
 	   Movables[col][row+add] = temp1;
+	   
+	   Movables[col][row].row = row;
+	   Movables[col][row+add].row = row+add;
+	   
+	   Movables[col][row].y = y;
+	   Movables[col][row+add].y = y+size*add;
    }
+   
+
 
    @Override
    public void dispose() {
